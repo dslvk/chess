@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Шахматы</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        .timers {
+            display: flex;
+            justify-content: space-between;
+            width: 300px;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(8, 60px);
+            border: 2px solid black;
+        }
+        .square {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 32px;
+            cursor: pointer;
+        }
+        .dark {
+            background-color: #769656;
+        }
+        .light {
+            background-color: #eeeed2;
+        }
+    </style>
+</head>
+<body>
+    <div class="timers">
+        <div id="white-timer">Белые: 5:00</div>
+        <div id="black-timer">Черные: 5:00</div>
+    </div>
+    <div class="board" id="chessboard"></div>
+    <script>
+        const board = document.getElementById("chessboard");
+        const whiteTimerDisplay = document.getElementById("white-timer");
+        const blackTimerDisplay = document.getElementById("black-timer");
+        let whiteTime = 300, blackTime = 300;
+        let currentPlayer = 'white';
+        let timer;
+        let extraMove = false;
+
+        function startTimer() {
+            clearInterval(timer);
+            timer = setInterval(() => {
+                if (currentPlayer === 'white') {
+                    whiteTime--;
+                    updateTimerDisplay(whiteTimerDisplay, whiteTime);
+                } else {
+                    blackTime--;
+                    updateTimerDisplay(blackTimerDisplay, blackTime);
+                }
+                if (whiteTime === 0 || blackTime === 0) {
+                    clearInterval(timer);
+                    alert(`${currentPlayer === 'white' ? 'Черные' : 'Белые'} победили по времени!`);
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay(display, time) {
+            let minutes = Math.floor(time / 60);
+            let seconds = time % 60;
+            display.textContent = `${display.id.includes("white") ? "Белые" : "Черные"}: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        startTimer();
+
+        const pieces = {
+            'rook': ['♜', '♖'], 'knight': ['♞', '♘'], 'bishop': ['♝', '♗'], 'queen': ['♛', '♕'], 'king': ['♚', '♔'], 'pawn': ['♟', '♙']
+        };
+        const initialSetup = [
+            ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'],
+            ['pawn', 'pawn', 'pawn', 'pawn', 'pawn', 'pawn', 'pawn', 'pawn']
+        ];
+        let boardState = Array(8).fill(null).map(() => Array(8).fill(null));
+        let selectedPiece = null;
+        let selectedSquare = null;
+
+        function isValidMove(piece, fromRow, fromCol, toRow, toCol) {
+            const rowDiff = toRow - fromRow;
+            const colDiff = Math.abs(toCol - fromCol);
+            switch (piece.toLowerCase()) {
+                case 'pawn':
+                    let direction = currentPlayer === 'white' ? -1 : 1;
+                    let startRow = currentPlayer === 'white' ? 6 : 1;
+                    if (colDiff === 0 && !boardState[toRow][toCol]) {
+                        if (rowDiff === direction) return true;
+                        if (fromRow === startRow && rowDiff === 2 * direction && !boardState[toRow - direction][toCol]) return true;
+                    }
+                    if (colDiff === 1 && rowDiff === direction && boardState[toRow][toCol] && boardState[toRow][toCol].color !== currentPlayer) {
+                        return true;
+                    }
+                    return false;
+                case 'rook':
+                    return fromRow === toRow || fromCol === toCol;
+                case 'bishop':
+                    return Math.abs(rowDiff) === Math.abs(colDiff);
+                case 'queen':
+                    return Math.abs(rowDiff) === Math.abs(colDiff) || fromRow === toRow || fromCol === toCol;
+                case 'king':
+                    return Math.abs(rowDiff) <= 1 && Math.abs(colDiff) <= 1;
+                case 'knight':
+                    return (Math.abs(rowDiff) === 2 && Math.abs(colDiff) === 1) || (Math.abs(rowDiff) === 1 && Math.abs(colDiff) === 2);
+                default:
+                    return false;
+            }
+        }
+
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                let square = document.createElement("div");
+                square.classList.add("square", (row + col) % 2 === 0 ? "light" : "dark");
+                square.dataset.row = row;
+                square.dataset.col = col;
+                if (row < 2 || row > 5) {
+                    let piece = initialSetup[row < 2 ? row : 7 - row][col];
+                    let color = row < 2 ? 'black' : 'white';
+                    let pieceSymbol = pieces[piece][color === 'white' ? 1 : 0];
+                    square.textContent = pieceSymbol;
+                    boardState[row][col] = { piece, color };
+                }
+                square.addEventListener("click", function() {
+                    let row = parseInt(this.dataset.row);
+                    let col = parseInt(this.dataset.col);
+                    let selectedData = boardState[row][col];
+                    if (selectedPiece) {
+                        let fromRow = parseInt(selectedSquare.dataset.row);
+                        let fromCol = parseInt(selectedSquare.dataset.col);
+                        let targetData = boardState[row][col];
+                        if (isValidMove(selectedPiece.piece, fromRow, fromCol, row, col)) {
+                            selectedSquare.textContent = "";
+                            this.textContent = pieces[selectedPiece.piece][selectedPiece.color === 'white' ? 1 : 0];
+                            boardState[row][col] = selectedPiece;
+                            boardState[fromRow][fromCol] = null;
+                            if (!targetData || targetData.color !== currentPlayer) {
+                                extraMove = !!targetData;
+                                if (!extraMove) currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+                                startTimer();
+                            }
+                        }
+                        selectedPiece = null;
+                        selectedSquare = null;
+                    } else if (selectedData && selectedData.color === currentPlayer) {
+                        selectedPiece = selectedData;
+                        selectedSquare = this;
+                    }
+                });
+                board.appendChild(square);
+            }
+        }
+    </script>
+</body>
+</html>
